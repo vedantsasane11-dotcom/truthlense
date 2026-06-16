@@ -5,19 +5,34 @@ import DecisionInput from './components/truthlense/DecisionInput'
 import AnalyzeButton from './components/truthlense/AnalyzeButton'
 import ResultCard from './components/truthlense/ResultCard'
 import { saveDecision, getRecentDecisions } from './services/truthlense/decisionService'
-import { Decision } from './types/truthlense/decision'
+import { AnalysisResult, Decision } from './types/truthlense/decision'
 
-const MOCK_RESULT = {
-  score: 78,
-  pros: ['Growing market demand', 'Low startup costs', 'High profit margins'],
-  cons: ['High competition', 'Requires strong network', 'Long sales cycles'],
-  risks: ['Requires sales skills', 'Market may be oversaturated by 2027', 'Client dependency risk'],
-  recommendation: 'Start with 3 pilot clients first. Validate your niche before scaling.',
+const MOCK_RESULT: AnalysisResult = {
+  decisionScore: 78,
+  confidence: 82,
+  assumptions: [
+    { text: 'You have access to initial capital', confidence: 'medium' },
+    { text: 'Market demand exists in your region', confidence: 'high' },
+  ],
+  opportunities: [
+    { text: 'Growing market demand for local brands', impact: 'high' },
+    { text: 'Low cost of entry via dropshipping', impact: 'medium' },
+  ],
+  risks: [
+    { text: 'High competition from established players', severity: 'high' },
+    { text: 'Requires strong sales and marketing skills', severity: 'medium' },
+  ],
+  successFactors: [
+    { text: 'Start with a clearly defined niche', required: true },
+    { text: 'Build an online presence before launch', required: true },
+    { text: 'Have 6 months of runway capital', required: false },
+  ],
+  recommendation: 'Start with 3 pilot clients or a small product line to validate demand before committing fully.',
 }
 
 export default function Home() {
   const [input, setInput] = useState('')
-  const [result, setResult] = useState<typeof MOCK_RESULT | null>(null)
+  const [result, setResult] = useState<AnalysisResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [recent, setRecent] = useState<Decision[]>([])
 
@@ -50,22 +65,16 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-16">
       <div className="w-full max-w-2xl space-y-6">
 
-        {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold text-gray-900">TruthLense</h1>
           <p className="text-gray-500">Validate ideas before execution</p>
         </div>
 
-        {/* Input */}
         <DecisionInput value={input} onChange={setInput} />
-
-        {/* Button */}
         <AnalyzeButton onClick={handleAnalyze} loading={loading} />
 
-        {/* Result */}
         {result && <ResultCard result={result} />}
 
-        {/* Recent Decisions */}
         {recent.length > 0 && (
           <div className="w-full bg-white border border-gray-200 rounded-xl p-6">
             <h2 className="font-semibold text-gray-700 mb-3">Recent Decisions</h2>

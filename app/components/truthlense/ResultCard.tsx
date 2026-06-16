@@ -1,44 +1,51 @@
-interface Result {
-  score: number
-  pros: string[]
-  cons: string[]
-  risks: string[]
-  recommendation: string
-}
+import { AnalysisResult } from '../../types/truthlense/decision'
 
 interface Props {
-  result: Result
+  result: AnalysisResult
+}
+
+const severityColor = (level: string) => {
+  if (level === 'high') return 'text-red-600'
+  if (level === 'medium') return 'text-yellow-600'
+  return 'text-green-600'
 }
 
 export default function ResultCard({ result }: Props) {
   return (
-    <div className="w-full bg-white border border-gray-200 rounded-xl p-6 space-y-5">
-      
+    <div className="w-full bg-white border border-gray-200 rounded-xl p-6 space-y-6">
+
       {/* Score */}
       <div className="flex items-center justify-between border-b pb-4">
-        <span className="text-gray-500 font-medium">Decision Score</span>
-        <span className="text-3xl font-bold text-blue-600">{result.score}/100</span>
+        <div>
+          <p className="text-sm text-gray-400">Decision Score</p>
+          <p className="text-3xl font-bold text-blue-600">{result.decisionScore}/100</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-gray-400">AI Confidence</p>
+          <p className="text-3xl font-bold text-gray-700">{result.confidence}%</p>
+        </div>
       </div>
 
-      {/* Pros */}
+      {/* Assumptions */}
       <div>
-        <h3 className="font-semibold text-gray-700 mb-2">Pros</h3>
+        <h3 className="font-semibold text-gray-700 mb-2">Assumptions</h3>
         <ul className="space-y-1">
-          {result.pros.map((pro, i) => (
-            <li key={i} className="flex items-start gap-2 text-green-700 text-sm">
-              <span>✓</span><span>{pro}</span>
+          {result.assumptions.map((a, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+              <span className={severityColor(a.confidence)}>◆</span>
+              <span>{a.text} <span className="text-gray-400">({a.confidence} confidence)</span></span>
             </li>
           ))}
         </ul>
       </div>
 
-      {/* Cons */}
+      {/* Opportunities */}
       <div>
-        <h3 className="font-semibold text-gray-700 mb-2">Cons</h3>
+        <h3 className="font-semibold text-gray-700 mb-2">Opportunities</h3>
         <ul className="space-y-1">
-          {result.cons.map((con, i) => (
-            <li key={i} className="flex items-start gap-2 text-red-600 text-sm">
-              <span>✗</span><span>{con}</span>
+          {result.opportunities.map((o, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-green-700">
+              <span>✓</span><span>{o.text}</span>
             </li>
           ))}
         </ul>
@@ -48,9 +55,22 @@ export default function ResultCard({ result }: Props) {
       <div>
         <h3 className="font-semibold text-gray-700 mb-2">Risks</h3>
         <ul className="space-y-1">
-          {result.risks.map((risk, i) => (
-            <li key={i} className="flex items-start gap-2 text-yellow-600 text-sm">
-              <span>⚠</span><span>{risk}</span>
+          {result.risks.map((r, i) => (
+            <li key={i} className={`flex items-start gap-2 text-sm ${severityColor(r.severity)}`}>
+              <span>⚠</span><span>{r.text}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Success Factors */}
+      <div>
+        <h3 className="font-semibold text-gray-700 mb-2">Success Factors</h3>
+        <ul className="space-y-1">
+          {result.successFactors.map((s, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+              <span>{s.required ? '★' : '☆'}</span>
+              <span>{s.text} {s.required && <span className="text-red-400 text-xs">(required)</span>}</span>
             </li>
           ))}
         </ul>
