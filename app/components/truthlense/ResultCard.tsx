@@ -15,16 +15,16 @@ export default function ResultCard({ result }: Props) {
     <div className="w-full bg-white border border-gray-200 rounded-xl p-6 space-y-6">
 
       {/* Score */}
-      <div className="flex items-center justify-between border-b pb-4">
-        <div>
-          <p className="text-sm text-gray-400">Decision Score</p>
-          <p className="text-3xl font-bold text-blue-600">{result.decisionScore}/100</p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-gray-400">AI Confidence</p>
-          <p className="text-3xl font-bold text-gray-700">{result.confidence}%</p>
-        </div>
-      </div>
+<div className="flex items-center justify-between border-b pb-4">
+  <div>
+    <p className="text-sm text-gray-400">Decision Score</p>
+    <p className="text-3xl font-bold text-blue-600">{result.decisionScore}/100</p>
+  </div>
+  <div className="text-right">
+    <p className="text-sm text-gray-400">Research Confidence</p>
+    <p className="text-3xl font-bold text-gray-700">{result.confidence}%</p>
+  </div>
+</div>
 
       {/* Assumptions */}
       <div>
@@ -76,11 +76,11 @@ export default function ResultCard({ result }: Props) {
         </ul>
       </div>
 
-      {/* Recommendation */}
-      <div className="bg-blue-50 rounded-lg p-4">
-        <h3 className="font-semibold text-gray-700 mb-1">Recommendation</h3>
-        <p className="text-gray-600 text-sm">{result.recommendation}</p>
-      </div>
+      {/* Verdict */}
+<div className="bg-blue-50 rounded-lg p-4">
+  <h3 className="font-semibold text-gray-700 mb-1">Execution Recommendation</h3>
+  <p className="text-gray-600 text-sm">{result.recommendation}</p>
+</div>
 
     </div>
   )

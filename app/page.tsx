@@ -67,7 +67,7 @@ export default function Home() {
 
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold text-gray-900">TruthLense</h1>
-          <p className="text-gray-500">Validate ideas before execution</p>
+         <p className="text-gray-500">Know before you commit.</p>
         </div>
 
         <DecisionInput value={input} onChange={setInput} />
