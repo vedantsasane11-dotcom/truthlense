@@ -8,7 +8,7 @@ export default function AnalyzeButton({ onClick, loading }: Props) {
     <button
       onClick={onClick}
       disabled={loading}
-      className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors duration-200 disabled:opacity-50"
+      className="bg-[#0ea5a5] hover:bg-[#0c8f8f] text-white font-medium px-5 py-2 rounded-full transition-colors disabled:opacity-50"
     >
       {loading ? 'Analyzing...' : 'Analyze'}
     </button>
