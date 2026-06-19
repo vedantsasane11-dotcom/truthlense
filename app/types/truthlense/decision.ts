@@ -4,13 +4,40 @@ export interface Decision {
   created_at: string;
 }
 
+export interface Assumption {
+  text: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface Opportunity {
+  text: string;
+  impact: 'high' | 'medium' | 'low';
+}
+
+export interface Risk {
+  text: string;
+  severity: 'high' | 'medium' | 'low';
+}
+
+export interface SuccessFactor {
+  text: string;
+  required: boolean;
+}
+
+export interface Verdict {
+  label: 'Favorable' | 'Proceed with Caution' | 'High Risk';
+  summary: string;
+}
+
 export interface AnalysisResult {
-  decisionScore: number;      // 0-100
-  researchConfidence?: number; // 0-100, how confident the AI is
-  confidence?: number;         // legacy field support
-  assumptions: string[];
-  opportunities: string[];
-  risks: string[];
-  successFactors: string[];
+  verdict: Verdict;
+  decisionScore: number;
+  confidence: number;
+  positiveFactors: string[];
+  negativeFactors: string[];
+  assumptions: Assumption[];
+  opportunities: Opportunity[];
+  risks: Risk[];
+  successFactors: SuccessFactor[];
   recommendation: string;
 }

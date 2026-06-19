@@ -53,7 +53,7 @@ export default function Page() {
           </div>
         </div>
 
-        {analysisResult && <ResultCard data={analysisResult} />}
+        {analysisResult && <ResultCard result={analysisResult} />}
       </div>
     </main>
   )
