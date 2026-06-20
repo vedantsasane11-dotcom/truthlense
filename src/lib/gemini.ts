@@ -26,9 +26,9 @@ const truthLenseSchema: Schema = {
       type: SchemaType.INTEGER, 
       description: "A pragmatic score from 0 to 100 based on viability and risk-to-reward ratio." 
     },
-    confidence: { 
-      type: SchemaType.INTEGER, 
-      description: "Confidence level in the available data/analysis from 0 to 100." 
+    confidenceLevel: {
+      type: SchemaType.STRING,
+      description: "Confidence in the analysis based on available evidence: 'Low', 'Medium', or 'High'."
     },
     positiveFactors: {
       type: SchemaType.ARRAY,
@@ -39,6 +39,23 @@ const truthLenseSchema: Schema = {
       type: SchemaType.ARRAY,
       items: { type: SchemaType.STRING },
       description: 'Three short reasons against the decision.'
+    },
+    biggestOpportunity: {
+      type: SchemaType.STRING,
+      description: "The single biggest opportunity in 10 words or less. Punchy, not a full sentence."
+    },
+    biggestRisk: {
+      type: SchemaType.STRING,
+      description: "The single biggest risk in 10 words or less. Punchy, not a full sentence."
+    },
+    immediateNextStep: {
+      type: SchemaType.STRING,
+      description: "One small, concrete action in 10 words or less. Punchy, not a full sentence."
+    },
+    whatWouldChangeVerdict: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+      description: "3-4 specific conditions that would upgrade this verdict (e.g. turn High Risk into Proceed with Caution, or Proceed with Caution into Favorable)."
     },
     evidenceConsidered: {
       type: SchemaType.ARRAY,
@@ -143,9 +160,13 @@ const truthLenseSchema: Schema = {
   required: [
     "verdict",
     "decisionScore", 
-    "confidence", 
+    "confidenceLevel", 
     "positiveFactors",
     "negativeFactors",
+    "biggestOpportunity",
+    "biggestRisk",
+    "immediateNextStep",
+    "whatWouldChangeVerdict",
     "evidenceConsidered",
     "analysisScope",
     "assumptions", 
@@ -180,10 +201,14 @@ Return JSON in exactly this structure:
     "label": "Favorable" | "Proceed with Caution" | "High Risk",
     "summary": string (2 sentences max, explain the verdict in plain language)
   },
-  "decisionScore": number (0-100),
-  "confidence": number (0-100),
+  "confidenceLevel": "Low" | "Medium" | "High",
   "positiveFactors": string[] (3 short bullet points, the strongest reasons in favor),
   "negativeFactors": string[] (3 short bullet points, the strongest reasons against),
+  "biggestOpportunity": string (10 words max, punchy not a sentence),
+  "biggestRisk": string (10 words max, punchy not a sentence),
+  "immediateNextStep": string (10 words max, punchy not a sentence),
+  "whatWouldChangeVerdict": string[] (3-4 specific conditions that would improve this verdict),
+  "evidenceConsidered": [...]
   "evidenceConsidered": [{ "text": string, "strength": "high" | "medium" | "low" }] (5-6 specific dimensions of evidence relevant to this exact decision, e.g. market trends, competition, capital needs, regulatory factors — tailor to the decision),
   "analysisScope": string[] (4-5 short labels representing the dimensions analyzed, e.g. "Market Potential", "Competition", "Financial Feasibility", "Execution Difficulty", "Long-Term Sustainability" — tailor to the decision),
   "assumptions": [{ "text": string, "confidence": "high" | "medium" | "low" }],

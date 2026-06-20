@@ -36,9 +36,13 @@ export interface EvidenceItem {
 export interface AnalysisResult {
   verdict: Verdict;
   decisionScore: number;
-  confidence: number;
+  confidenceLevel: 'Low' | 'Medium' | 'High';
   positiveFactors: string[];
   negativeFactors: string[];
+  biggestOpportunity: string;
+  biggestRisk: string;
+  immediateNextStep: string;
+  whatWouldChangeVerdict: string[];
   evidenceConsidered: EvidenceItem[];
   analysisScope: string[];
   assumptions: Assumption[];
