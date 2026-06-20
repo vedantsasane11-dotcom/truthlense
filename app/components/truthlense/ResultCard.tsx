@@ -10,6 +10,18 @@ const severityColor = (level: string) => {
   return 'text-green-400'
 }
 
+const evidenceColor = (level: string) => {
+  if (level === 'high') return 'text-green-400'
+  if (level === 'medium') return 'text-yellow-400'
+  return 'text-gray-500'
+}
+
+const evidenceLabel = (level: string) => {
+  if (level === 'high') return 'High Evidence'
+  if (level === 'medium') return 'Medium Evidence'
+  return 'Low Evidence'
+}
+
 const verdictStyles = {
   Favorable: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400' },
   'Proceed with Caution': { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-400' },
@@ -30,6 +42,8 @@ export default function ResultCard({ result }: Props) {
   const decisionScore = typeof result?.decisionScore === 'number' ? result.decisionScore : 0
   const confidence = typeof result?.confidence === 'number' ? result.confidence : 0
   const style = verdictStyles[verdict.label]
+  const evidenceConsidered = result?.evidenceConsidered ?? []
+  const analysisScope = result?.analysisScope ?? []
 
   return (
     <div className="w-full space-y-4">
@@ -55,8 +69,10 @@ export default function ResultCard({ result }: Props) {
             <p className="text-3xl font-bold text-gray-200">{confidence}%</p>
           </div>
         </div>
+        
 
         {/* Why This Verdict */}
+        
         <div>
           <h3 className="font-semibold text-gray-200 mb-3">Why This Verdict?</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -82,6 +98,33 @@ export default function ResultCard({ result }: Props) {
             </div>
           </div>
         </div>
+
+        {/* Evidence Considered */}
+        <div>
+          <h3 className="font-semibold text-gray-200 mb-2">Evidence Considered</h3>
+          <ul className="space-y-1">
+            {evidenceConsidered.map((e, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-gray-400">
+                <span className="text-gray-500">•</span>
+                <span>{e.text} <span className={evidenceColor(e.strength)}>({evidenceLabel(e.strength)})</span></span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Analysis Scope */}
+        <div>
+          <h3 className="font-semibold text-gray-200 mb-2">Analysis Scope</h3>
+          <ul className="space-y-1">
+            {analysisScope.map((s, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                <span className="text-[#0ea5a5]">✓</span>
+                <span>{s}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        
 
         {/* Assumptions */}
         <div>

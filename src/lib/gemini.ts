@@ -40,6 +40,29 @@ const truthLenseSchema: Schema = {
       items: { type: SchemaType.STRING },
       description: 'Three short reasons against the decision.'
     },
+    evidenceConsidered: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          text: {
+            type: SchemaType.STRING,
+            description: 'A specific dimension of evidence relevant to this decision.'
+          },
+          strength: {
+            type: SchemaType.STRING,
+            description: 'The strength of this evidence: high, medium, or low.'
+          }
+        },
+        required: ['text', 'strength']
+      },
+      description: '5-6 specific dimensions of evidence relevant to this exact decision, tailored to the decision (e.g. market trends, competition, capital needs, regulatory factors).'
+    },
+    analysisScope: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+      description: '4-5 short labels representing the dimensions analyzed, tailored to the decision (e.g. "Market Potential", "Competition", "Financial Feasibility").'
+    },
     assumptions: { 
       type: SchemaType.ARRAY, 
       items: {
@@ -123,6 +146,8 @@ const truthLenseSchema: Schema = {
     "confidence", 
     "positiveFactors",
     "negativeFactors",
+    "evidenceConsidered",
+    "analysisScope",
     "assumptions", 
     "opportunities", 
     "risks", 
@@ -159,6 +184,8 @@ Return JSON in exactly this structure:
   "confidence": number (0-100),
   "positiveFactors": string[] (3 short bullet points, the strongest reasons in favor),
   "negativeFactors": string[] (3 short bullet points, the strongest reasons against),
+  "evidenceConsidered": [{ "text": string, "strength": "high" | "medium" | "low" }] (5-6 specific dimensions of evidence relevant to this exact decision, e.g. market trends, competition, capital needs, regulatory factors — tailor to the decision),
+  "analysisScope": string[] (4-5 short labels representing the dimensions analyzed, e.g. "Market Potential", "Competition", "Financial Feasibility", "Execution Difficulty", "Long-Term Sustainability" — tailor to the decision),
   "assumptions": [{ "text": string, "confidence": "high" | "medium" | "low" }],
   "opportunities": [{ "text": string, "impact": "high" | "medium" | "low" }],
   "risks": [{ "text": string, "severity": "high" | "medium" | "low" }],
@@ -166,7 +193,7 @@ Return JSON in exactly this structure:
   "recommendation": string (one specific, actionable next step — not generic advice)
 }
 
-Make the analysis specific to "${decision}". Do not give generic startup advice — tailor every field to this exact decision.`;
+Make the analysis specific to "${decision}". Do not give generic startup advice — tailor every field to this exact decision.`
 
     const result = await model.generateContent(prompt);
     const response = result.response;

@@ -28,6 +28,10 @@ export interface Verdict {
   label: 'Favorable' | 'Proceed with Caution' | 'High Risk';
   summary: string;
 }
+export interface EvidenceItem {
+  text: string;
+  strength: 'high' | 'medium' | 'low';
+}
 
 export interface AnalysisResult {
   verdict: Verdict;
@@ -35,6 +39,8 @@ export interface AnalysisResult {
   confidence: number;
   positiveFactors: string[];
   negativeFactors: string[];
+  evidenceConsidered: EvidenceItem[];
+  analysisScope: string[];
   assumptions: Assumption[];
   opportunities: Opportunity[];
   risks: Risk[];
