@@ -28,9 +28,26 @@ export interface Verdict {
   label: 'Favorable' | 'Proceed with Caution' | 'High Risk';
   summary: string;
 }
+
 export interface EvidenceItem {
   text: string;
   strength: 'high' | 'medium' | 'low';
+  type: 'Verified' | 'Assumption' | 'Inference';
+}
+
+export interface DecisionMetrics {
+  timeRequired: number;
+  moneyRequired: number;
+  riskLevel: number;
+  difficulty: number;
+  potentialROI: number;
+}
+
+export interface ScoreBreakdownItem {
+  factor: string;
+  points: number;
+  weight: number;
+  confidence: 'high' | 'medium' | 'low';
 }
 
 export interface AnalysisResult {
@@ -43,6 +60,10 @@ export interface AnalysisResult {
   biggestRisk: string;
   immediateNextStep: string;
   whatWouldChangeVerdict: string[];
+  decisionMetrics: DecisionMetrics;
+  scoreBreakdown: ScoreBreakdownItem[];
+  alternativePaths: string[];
+  missingInformation: string[];
   evidenceConsidered: EvidenceItem[];
   analysisScope: string[];
   assumptions: Assumption[];
