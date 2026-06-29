@@ -1,41 +1,145 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import type { Schema } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
+const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
+const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 
 // ---------- Clarifying Questions ----------
+
+const buildFallbackQuestions = (decisionQuery: string) => {
+  const normalizedDecision = decisionQuery.toLowerCase();
+  const questions: Array<{ question: string; critical: boolean }> = [];
+
+  const addQuestion = (question: string, critical: boolean) => {
+    const trimmedQuestion = question.trim();
+    if (trimmedQuestion) {
+      questions.push({ question: trimmedQuestion, critical });
+    }
+  };
+
+  if (/(budget|money|cost|buy|invest|salary|loan|rent|save)/.test(normalizedDecision)) {
+    addQuestion('What is your available budget or money for this decision?', true);
+  }
+
+  if (/(time|deadline|timeline|soon|when|start|launch|move|job|offer|commit)/.test(normalizedDecision)) {
+    addQuestion('What timeline or deadline is involved?', true);
+  }
+
+  if (/(job|career|mba|degree|company|offer|role|startup|business|launch)/.test(normalizedDecision)) {
+    addQuestion('What options or opportunities are already in front of you?', true);
+  }
+
+  if (/(buy|rent|property|house|car|phone|product)/.test(normalizedDecision)) {
+    addQuestion('What alternatives are you comparing right now?', false);
+  }
+
+  addQuestion('What matters most to you if this decision goes well?', false);
+  addQuestion('What would make this feel clearly worth the effort?', false);
+
+  return questions.slice(0, 5);
+};
+
+const normalizeClarifyingQuestions = (rawResponse: unknown, decisionQuery: string) => {
+  const fallbackQuestions = buildFallbackQuestions(decisionQuery);
+
+  if (!rawResponse || typeof rawResponse !== 'object') {
+    return { questions: fallbackQuestions };
+  }
+
+  const candidate = (rawResponse as { questions?: unknown }).questions;
+  if (!Array.isArray(candidate)) {
+    return { questions: fallbackQuestions };
+  }
+
+  const normalizedQuestions = candidate
+    .map((item) => {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const entry = item as Record<string, unknown>;
+      const question = typeof entry.question === 'string' ? entry.question.trim() : '';
+      const critical = typeof entry.critical === 'boolean' ? entry.critical : false;
+
+      return question ? { question, critical } : null;
+    })
+    .filter((item): item is { question: string; critical: boolean } => Boolean(item));
+
+  return {
+    questions: normalizedQuestions.length > 0 ? normalizedQuestions.slice(0, 5) : fallbackQuestions,
+  };
+};
 
 const questionsSchema: Schema = {
   type: SchemaType.OBJECT,
   properties: {
     questions: {
       type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING },
-      description: "3-5 short, specific clarifying questions whose answers would meaningfully change the analysis of this exact decision (e.g. budget, timeline, experience, location, current situation). If the decision is already very specific and well-scoped, return fewer questions or an empty array."
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          question: { type: SchemaType.STRING, description: 'The clarifying question text, short and specific.' },
+          critical: { type: SchemaType.BOOLEAN, description: 'True if a reliable verdict CANNOT be given without this answer (e.g. budget for a financial decision, salary for a career decision). False if it would only refine the analysis.' }
+        },
+        required: ['question', 'critical']
+      },
+      description: "3-5 clarifying questions for this decision. Mark the 1-3 most essential ones (without which any verdict would be unreliable) as critical: true. Mark the rest critical: false. If the decision is already very specific and well-scoped, return fewer questions or an empty array."
     }
   },
   required: ["questions"]
 };
 
 export async function generateClarifyingQuestions(decisionQuery: string) {
+  if (!genAI) {
+    return normalizeClarifyingQuestions({ questions: [] }, decisionQuery);
+  }
+
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash-lite",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: questionsSchema,
+      maxOutputTokens: 1024,
     }
   });
 
   const prompt = `A user wants to analyze this decision: "${decisionQuery}"
 
-Generate 3-5 short, specific clarifying questions whose answers would meaningfully change a decision analysis. Only ask questions relevant to THIS decision. If the decision is already very specific and well-scoped, return fewer questions or an empty array.
+  Generate 3-5 short, specific clarifying questions.
 
-Respond ONLY with JSON.`;
+  CRITICAL means: without this exact data point, no numeric or directional verdict can be trusted. Critical questions must be about hard facts — money, time, numbers, existing commitments, concrete alternatives already in hand. Examples of CRITICAL: "What are your savings and monthly expenses?", "Do you have a job offer in hand?", "What is your budget?".
 
-  const result = await model.generateContent(prompt);
-  return JSON.parse(result.response.text());
+  Examples of NOT critical (mark false): reflection questions, opinions, feelings, "why" questions, anything the user could answer in any number of ways without changing the math. Example of NOT critical: "What is your primary reason for wanting to quit?", "What aspects of your job are causing dissatisfaction?".
+
+  Mark at most 2 questions as critical: true. The rest critical: false. If the decision is already very specific and well-scoped, return fewer questions or an empty array.
+
+  Respond ONLY with JSON.`;
+
+  let lastError: any = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+      const parsedResponse = JSON.parse(responseText);
+      return normalizeClarifyingQuestions(parsedResponse, decisionQuery);
+    } catch (error: any) {
+      lastError = error;
+      const is503 = error?.message?.includes('503') || error?.status === 503;
+      const isParseError = error instanceof SyntaxError;
+      console.error(`generateClarifyingQuestions attempt ${attempt} failed (503: ${is503}, parseError: ${isParseError}):`, error?.message || error);
+
+      if ((is503 || isParseError) && attempt < 3) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+        continue;
+      }
+
+      return normalizeClarifyingQuestions({ questions: [] }, decisionQuery);
+    }
+  }
+
+  return normalizeClarifyingQuestions({ questions: [] }, decisionQuery);
 }
-
 // ---------- Main Analysis ----------
 
 const truthLenseSchema: Schema = {
@@ -55,7 +159,7 @@ const truthLenseSchema: Schema = {
     },
     confidenceLevel: {
       type: SchemaType.STRING,
-      description: "Confidence in the analysis based on available evidence and context: 'Low', 'Medium', or 'High'. Should be lower if missingInformation is non-empty."
+      description: "Confidence in the analysis: 'Low', 'Medium', or 'High'. STRICT RULE: if missingInformation has any items, confidenceLevel CANNOT be 'High' — it must be 'Medium' or 'Low'. confidenceLevel can only be 'High' when missingInformation is empty."
     },
     positiveFactors: {
       type: SchemaType.ARRAY,
@@ -117,7 +221,7 @@ const truthLenseSchema: Schema = {
     missingInformation: {
       type: SchemaType.ARRAY,
       items: { type: SchemaType.STRING },
-      description: "Specific pieces of information NOT already provided (in the decision text or context) that, if known, would meaningfully improve confidence in this analysis. Empty array if the decision and context together are already well-specified."
+      description: "Specific pieces of information that, if missing, would genuinely BLOCK a confident verdict. Do NOT list minor nice-to-have details — only list something here if its absence is the reason confidenceLevel is not 'High'. If the answer is already confident and decisive, this MUST be an empty array. Do not pad this list just to seem thorough."
     },
     evidenceConsidered: {
       type: SchemaType.ARRAY,
@@ -200,6 +304,10 @@ const truthLenseSchema: Schema = {
 };
 
 export async function analyzeDecision(decisionQuery: string, context?: Record<string, string>) {
+  if (!genAI) {
+    throw new Error("Gemini API is not configured. Please set GEMINI_API_KEY.");
+  }
+
   try {
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash-lite",
@@ -243,15 +351,41 @@ Return JSON in exactly this structure:
   "successFactors": [{ "text": string, "required": boolean }],
   "recommendation": string
 }
+CONSISTENCY RULE: confidenceLevel and missingInformation must agree. If you set confidenceLevel to "High", missingInformation MUST be an empty array — no exceptions. Only set confidenceLevel to "Medium" or "Low" if missingInformation actually contains real blocking gaps. Never list missing information just to appear thorough when you are already confident.
 
-Use any additional context provided above to make the analysis sharper and to reduce missingInformation. The decisionMetrics MUST meaningfully reflect the actual nature of this decision. Do not give generic advice — tailor every field to this exact decision.`;
+If context was provided above, you MUST explicitly use the actual numbers/facts given (e.g. cite the specific savings amount, salary figure, or timeline mentioned) inside verdict.summary, positiveFactors, negativeFactors, and scoreBreakdown. Do not restate the question — use the answer's content directly.
 
-    const result = await model.generateContent(prompt);
-    return JSON.parse(result.response.text());
+missingInformation must NEVER repeat or rephrase something already answered in context. Each item must be a genuinely new gap, phrased specifically (e.g. "Monthly expenses beyond savings" not "Financial information"). If context already covers most critical gaps, missingInformation should be short (1-2 items) or empty.
 
+Do not default to "Proceed with Caution" out of safety. Apply this test before choosing a verdict: if the user has a financial cushion (savings covering 6+ months) AND no immediate red flag (e.g. dependents with no backup, zero savings, active legal/health issue), lean toward "Favorable" even if some risk remains — calculated risk with a safety net is still a good decision. Reserve "High Risk" for cases with a genuine blocking problem (e.g. less than 2 months runway, no plan, high dependents). Reserve "Proceed with Caution" only for cases that are truly balanced — roughly equal weight of solid reasons for and against, not merely "some risk exists." Most real decisions with decent context should resolve to Favorable or High Risk, not sit in the middle by default.
+
+  The decisionMetrics MUST meaningfully reflect the actual nature of this decision. Do not give generic advice — tailor every field to this exact decision and to the specific context provided.
+
+When the user provides specific numeric context (e.g. an exact savings amount and an exact monthly expense figure), you MUST calculate the precise result (e.g. "₹1.8L savings ÷ ₹30K monthly expenses = 6 months runway") and state that exact number in verdict.summary and scoreBreakdown. Do not convert precise numbers into vague ranges like "6-10 months" — only use a range if the user's own input was itself a range or was vague.`;
+
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const result = await model.generateContent(prompt);
+        return JSON.parse(result.response.text());
+      } catch (error: any) {
+        lastError = error;
+        const is503 = error?.message?.includes('503') || error?.status === 503;
+        console.error(`TruthLense Engine Error (attempt ${attempt}, 503: ${is503}):`, error?.message || error);
+
+        if (is503 && attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+          continue;
+        }
+        break;
+      }
+    }
+
+    if (lastError instanceof Error) throw lastError;
+    throw new Error("Failed to audit decision. Please try again.");
   } catch (error) {
     console.error("TruthLense Engine Error:", error);
-    if (error instanceof Error) throw error;
-    throw new Error("Failed to audit decision. Please try again.");
+    throw error;
   }
 }

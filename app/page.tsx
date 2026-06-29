@@ -5,8 +5,9 @@ import DecisionInput from './components/truthlense/DecisionInput'
 import AnalyzeButton from './components/truthlense/AnalyzeButton'
 import ResultCard from './components/truthlense/ResultCard'
 import QuestionsForm from './components/truthlense/QuestionsForm'
+import InsufficientInfo from './components/truthlense/InsufficientInfo'
 import { saveDecision } from './services/truthlense/decisionService'
-import { AnalysisResult } from './types/truthlense/decision'
+import { AnalysisResult, ClarifyingQuestion } from './types/truthlense/decision'
 
 const EXAMPLES = [
   'Should I start a SaaS company?',
@@ -22,12 +23,15 @@ interface HistoryItem {
   date: string
 }
 
-type Step = 'input' | 'questions' | 'result'
+type Step = 'input' | 'questions' | 'insufficient' | 'result'
+
+const READINESS_THRESHOLD = 50
 
 export default function Home() {
   const [input, setInput] = useState('')
   const [step, setStep] = useState<Step>('input')
-  const [questions, setQuestions] = useState<string[]>([])
+  const [questions, setQuestions] = useState<ClarifyingQuestion[]>([])
+  const [answers, setAnswers] = useState<Record<string, string>>({})
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<HistoryItem[]>([])
@@ -43,7 +47,19 @@ export default function Home() {
     }
   }, [])
 
+  const calcReadiness = (qs: ClarifyingQuestion[], a: Record<string, string>) => {
+    const critical = qs.filter((q) => q.critical)
+    if (critical.length === 0) return 100
+    const answered = critical.filter((q) => a[q.question] && a[q.question].trim().length > 0)
+    return Math.round((answered.length / critical.length) * 100)
+  }
+
+  const getMissingCritical = (qs: ClarifyingQuestion[], a: Record<string, string>) =>
+    qs.filter((q) => q.critical && (!a[q.question] || !a[q.question].trim())).map((q) => q.question)
+
   const runAnalysis = async (context: Record<string, string>) => {
+    if (!input.trim()) return
+
     setLoading(true)
     try {
       const res = await fetch('/api/analyze', {
@@ -51,27 +67,33 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ decisionQuery: input, context }),
       })
-      const data = await res.json()
-      if (data.error) {
-        console.error('API Error:', data.error)
-        setLoading(false)
-        return
+
+      if (!res.ok) {
+        throw new Error(`Analysis API failed with status ${res.status}`)
       }
-      setResult(data)
+
+      const data = await res.json()
+      if (data?.error) {
+        throw new Error(data.error)
+      }
+
+      const safeResult = data as AnalysisResult
+      setResult(safeResult)
       setStep('result')
 
       const newEntry: HistoryItem = {
         decision: input,
-        verdict: data.verdict.label,
-        score: data.decisionScore,
+        verdict: safeResult.verdict.label,
+        score: safeResult.decisionScore,
         date: new Date().toLocaleDateString(),
       }
-      const updatedHistory = [newEntry, ...history].slice(0, 8)
+      const updatedHistory = [newEntry, ...(history || [])].slice(0, 8)
       setHistory(updatedHistory)
       localStorage.setItem('truthlense_history', JSON.stringify(updatedHistory))
-    } catch (err) {
-      console.error('Error analyzing decision:', err)
-    } finally {
+   } catch (err) {
+  console.error('Error analyzing decision:', err)
+  alert('TruthLense is experiencing high demand right now. Please wait a few seconds and try again.')
+  }finally {
       setLoading(false)
     }
   }
@@ -79,6 +101,7 @@ export default function Home() {
   const handleStart = async () => {
     if (!input.trim()) return
     setLoading(true)
+
     try {
       await saveDecision(input)
 
@@ -87,28 +110,52 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ decisionQuery: input }),
       })
+
+      if (!res.ok) {
+        throw new Error(`Questions API failed with status ${res.status}`)
+      }
+
       const data = await res.json()
 
-      if (data.error || !data.questions || data.questions.length === 0) {
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      if (!data.questions || data.questions.length === 0) {
         await runAnalysis({})
       } else {
         setQuestions(data.questions)
+        setAnswers({})
         setStep('questions')
         setLoading(false)
       }
     } catch (err) {
-      console.error('Error generating questions:', err)
-      await runAnalysis({})
+      console.error('Failed to fetch clarifying questions:', err)
+      setLoading(false)
+      alert('Could not generate clarifying questions right now. Please try again.')
+    }
+  }
+  
+  const handleContinueFromQuestions = (newAnswers: Record<string, string>) => {
+    setAnswers(newAnswers)
+    const readiness = calcReadiness(questions, newAnswers)
+
+    if (readiness < READINESS_THRESHOLD) {
+      setStep('insufficient')
+    } else {
+      void runAnalysis(newAnswers)
     }
   }
 
-  const handleSubmitAnswers = (answers: Record<string, string>) => runAnalysis(answers)
-  const handleSkip = () => runAnalysis({})
+  const handleForceAnalyze = () => {
+    void runAnalysis(answers)
+  }
 
   const handleReset = () => {
     setInput('')
     setResult(null)
     setQuestions([])
+    setAnswers({})
     setStep('input')
   }
 
@@ -117,6 +164,9 @@ export default function Home() {
     if (label === 'Proceed with Caution') return 'text-yellow-400'
     return 'text-red-400'
   }
+
+  const readiness = calcReadiness(questions, answers)
+  const missingCritical = getMissingCritical(questions, answers)
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] flex flex-col items-center px-4 py-24">
@@ -156,8 +206,18 @@ export default function Home() {
         {step === 'questions' && (
           <QuestionsForm
             questions={questions}
-            onSubmit={handleSubmitAnswers}
-            onSkip={handleSkip}
+            initialAnswers={answers}
+            onContinue={handleContinueFromQuestions}
+            loading={loading}
+          />
+        )}
+
+        {step === 'insufficient' && (
+          <InsufficientInfo
+            readiness={readiness}
+            missingCritical={missingCritical}
+            onBack={() => setStep('questions')}
+            onForce={handleForceAnalyze}
             loading={loading}
           />
         )}
@@ -174,7 +234,7 @@ export default function Home() {
           </>
         )}
 
-        {history.length > 0 && step !== 'questions' && (
+        {history.length > 0 && step === 'input' && (
           <div className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6">
             <h2 className="font-semibold text-gray-300 mb-3">Recent Analyses</h2>
             <ul className="space-y-3">

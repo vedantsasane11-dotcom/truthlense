@@ -49,6 +49,10 @@ export interface ScoreBreakdownItem {
   weight: number;
   confidence: 'high' | 'medium' | 'low';
 }
+export interface ClarifyingQuestion {
+  question: string;
+  critical: boolean;
+}
 
 export interface AnalysisResult {
   verdict: Verdict;

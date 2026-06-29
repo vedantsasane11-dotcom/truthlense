@@ -130,9 +130,8 @@ export default function ResultCard({ result }: Props) {
           </div>
         </div>
       </div>
-
-      {/* Missing Information */}
-      {result.missingInformation.length > 0 && (
+        {/* Missing Information */}
+        {result.missingInformation.length > 0 && result.confidenceLevel !== 'High' && (
         <div className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6">
           <h3 className="font-semibold text-gray-200 mb-1">Missing Information</h3>
           <p className="text-sm text-gray-500 mb-3">Answering these would improve confidence in this analysis.</p>
